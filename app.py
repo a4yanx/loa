@@ -32,7 +32,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 print(f"GITHUB_USERNAME loaded: {GITHUB_USERNAME}")
 print(f"TELEGRAM_BOT_TOKEN loaded: {'[HIDDEN]' if TELEGRAM_BOT_TOKEN else 'None'}")
 print(f"TELEGRAM_CHAT_ID loaded: {TELEGRAM_CHAT_ID}")
-print("=== END DEBUG ==="))
+print("=== END DEBUG ===")
 
 # Validate environment variables
 required_vars = {
