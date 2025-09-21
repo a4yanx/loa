@@ -13,10 +13,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Debug: Print all environment variables
+print("=== DEBUG: Environment Variables ===")
+for key, value in os.environ.items():
+    if 'GITHUB' in key or 'TELEGRAM' in key:
+        print(f"{key}: {value}")
+
+print("=== All available env vars ===")
+all_vars = list(os.environ.keys())
+print(f"Total vars: {len(all_vars)}")
+print("Relevant vars:", [k for k in all_vars if any(x in k.upper() for x in ['GITHUB', 'TELEGRAM'])])
+
 # Environment variables
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+print(f"GITHUB_USERNAME loaded: {GITHUB_USERNAME}")
+print(f"TELEGRAM_BOT_TOKEN loaded: {'[HIDDEN]' if TELEGRAM_BOT_TOKEN else 'None'}")
+print(f"TELEGRAM_CHAT_ID loaded: {TELEGRAM_CHAT_ID}")
+print("=== END DEBUG ==="))
 
 # Validate environment variables
 required_vars = {
@@ -183,12 +199,33 @@ def fetch_github_events() -> None:
             logger.info("No events found")
             return
         
+        # ANTI-SPAM: On first run, just set last_event_id without processing
+        if last_event_id is None:
+            last_event_id = events[0]["id"]
+            logger.info(f"🚀 Bot started! Monitoring from now on... (skipping {len(events)} old events)")
+            
+            # Send startup message
+            startup_msg = f"🤖 *GitHub Monitor Started!*\n\n👤 **Monitoring:** `{GITHUB_USERNAME}`\n⏰ **Started:** `{datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}`\n\n🔔 You'll get notified for new activities!"
+            send_telegram_message(startup_msg)
+            return
+        
         # Process new events (in reverse order to maintain chronological order)
         new_events = []
         for event in events:
             if event["id"] == last_event_id:
                 break
             new_events.append(event)
+        
+        if not new_events:
+            logger.info("No new events to process")
+            return
+            
+        logger.info(f"Processing {len(new_events)} new events")
+        
+        # ANTI-SPAM: Limit to max 5 events per check
+        if len(new_events) > 5:
+            logger.warning(f"Too many events ({len(new_events)})! Processing only the latest 5")
+            new_events = new_events[:5]
         
         # Process events in chronological order
         for event in reversed(new_events):
@@ -205,13 +242,12 @@ def fetch_github_events() -> None:
             else:
                 logger.info(f"Ignoring event type: {event_type}")
             
-            # Small delay between messages to avoid rate limiting
-            time.sleep(1)
+            # Delay between messages to avoid spam
+            time.sleep(2)
         
         # Update last processed event ID
-        if events:
-            last_event_id = events[0]["id"]
-            logger.info(f"Updated last_event_id to: {last_event_id}")
+        last_event_id = events[0]["id"]
+        logger.info(f"Updated last_event_id to: {last_event_id}")
     
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching GitHub events: {e}")
